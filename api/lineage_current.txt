@@ -356,9 +356,11 @@ package lineageos.platform {
     field public static final java.lang.String PERFORMANCE_ACCESS = "lineageos.permission.PERFORMANCE_ACCESS";
     field public static final java.lang.String PROTECTED_APP = "lineageos.permission.PROTECTED_APP";
     field public static final java.lang.String READ_DATAUSAGE = "lineageos.permission.READ_DATAUSAGE";
+    field public static final java.lang.String READ_PHONE_LOCATION = "lineageos.permission.READ_PHONE_LOCATION";
     field public static final java.lang.String READ_WEATHER = "lineageos.permission.READ_WEATHER";
     field public static final java.lang.String TRUST_INTERFACE = "lineageos.permission.TRUST_INTERFACE";
     field public static final java.lang.String WRITE_DATAUSAGE = "lineageos.permission.WRITE_DATAUSAGE";
+    field public static final java.lang.String WRITE_PHONE_LOCATION = "lineageos.permission.WRITE_PHONE_LOCATION";
     field public static final java.lang.String WRITE_SECURE_SETTINGS = "lineageos.permission.WRITE_SECURE_SETTINGS";
     field public static final java.lang.String WRITE_SETTINGS = "lineageos.permission.WRITE_SETTINGS";
     field public static final java.lang.String WRITE_WEATHER = "lineageos.permission.WRITE_WEATHER";

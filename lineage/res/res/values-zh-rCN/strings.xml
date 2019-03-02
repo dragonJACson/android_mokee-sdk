@@ -56,6 +56,14 @@
     <string name="profileGroupSMS">短信</string>
     <!-- Name of wildcard profile. -->
     <string name="wildcardProfile">其他</string>
+    <!-- [CHAR LIMIT=NONE] Title of an application permission, listed so the user can choose whether they want to allow the application to do this. -->
+    <string name="permlab_readPhoneLocation">读取电话位置</string>
+    <!-- [CHAR LIMIT=NONE] Description of an application permission, listed so the user can choose whether they want to allow the application to do this. -->
+    <string name="permdesc_readPhoneLocation">允许应用读取有关电话位置的信息</string>
+    <!-- [CHAR LIMIT=NONE] Title of an application permission, listed so the user can choose whether they want to allow the application to do this. -->
+    <string name="permlab_writePhoneLocation">写入电话位置</string>
+    <!-- [CHAR LIMIT=NONE] Description of an application permission, listed so the user can choose whether they want to allow the application to do this. -->
+    <string name="permdesc_writePhoneLocation">允许应用更改电话位置</string>
     <!-- Performance profiles -->
     <string name="perf_profile_pwrsv">省电模式</string>
     <string name="perf_profile_bal">平衡模式</string>
