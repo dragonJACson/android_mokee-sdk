@@ -25,14 +25,14 @@
     <!-- Allows an application to read the phone location data -->
     <permission android:name="lineageos.permission.READ_PHONE_LOCATION"
                 android:permissionGroup="android.permission-group.SECURITY"
-                android:protectionLevel="signatureOrSystem"
+                android:protectionLevel="normal"
                 android:label="@string/permlab_readPhoneLocation"
                 android:description="@string/permdesc_readPhoneLocation" />
 
     <!-- Allows an application to change the phone location data -->
     <permission android:name="lineageos.permission.WRITE_PHONE_LOCATION"
                 android:permissionGroup="android.permission-group.SECURITY"
-                android:protectionLevel="signatureOrSystem"
+                android:protectionLevel="normal"
                 android:label="@string/permlab_writePhoneLocation"
                 android:description="@string/permdesc_writePhoneLocation" />
 
