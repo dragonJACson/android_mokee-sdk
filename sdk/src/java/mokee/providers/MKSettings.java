@@ -850,7 +850,7 @@ public final class MKSettings {
         // region System Settings
 
         /**
-         * Receiver mokee push notifications 
+         * Receiver mokee push notifications
          * @hide
          */
         public static final String RECEIVE_PUSH_NOTIFICATIONS = "receive_push_notifications";
@@ -2139,6 +2139,15 @@ public final class MKSettings {
         /**
          * @hide
          */
+        public static final String OMNI_USE_OLD_MOBILETYPE = "use_old_mobiletype";
+
+        /** @hide */
+        private static final Validator OMNI_USE_OLD_MOBILETYPE_VALIDATOR =
+                sBooleanValidator;
+
+        /**
+         * @hide
+         */
         public static final String[] LEGACY_SYSTEM_SETTINGS = new String[]{
                 MKSettings.System.RECEIVE_PUSH_NOTIFICATIONS,
                 MKSettings.System.USE_BOTTOM_GESTURE_NAVIGATION,
@@ -2230,6 +2239,7 @@ public final class MKSettings {
                 MKSettings.System.HEADSET_CONNECT_PLAYER,
                 MKSettings.System.ZEN_ALLOW_LIGHTS,
                 MKSettings.System.TOUCHSCREEN_GESTURE_HAPTIC_FEEDBACK,
+                MKSettings.System.OMNI_USE_OLD_MOBILETYPE,
         };
 
         /**
@@ -2414,6 +2424,7 @@ public final class MKSettings {
             VALIDATORS.put(FORCE_SHOW_NAVBAR,
                     FORCE_SHOW_NAVBAR_VALIDATOR);
             VALIDATORS.put(FINGERPRINT_SHORTCUTS, FINGERPRINT_SHORTCUTS_VALIDATOR);
+            VALIDATORS.put(OMNI_USE_OLD_MOBILETYPE, OMNI_USE_OLD_MOBILETYPE_VALIDATOR);
         };
         // endregion
     }
