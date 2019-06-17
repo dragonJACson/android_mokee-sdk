@@ -18,4 +18,5 @@
 <resources>
     <dimen name="net_traffic_single_text_size">14sp</dimen>
     <dimen name="net_traffic_multi_text_size">8sp</dimen>
+    <dimen name="net_traffic_text_img_padding">2sp</dimen>
 </resources>

@@ -83,6 +83,7 @@ public class NetworkTraffic extends TextView {
     private long mLastUpdateTime;
     private int mTextSizeSingle;
     private int mTextSizeMulti;
+    private int mTextImgPadding;
     private boolean mAutoHide;
     private long mAutoHideThreshold;
     private int mDarkModeFillColor;
@@ -107,6 +108,7 @@ public class NetworkTraffic extends TextView {
         final Resources resources = getResources();
         mTextSizeSingle = resources.getDimensionPixelSize(R.dimen.net_traffic_single_text_size);
         mTextSizeMulti = resources.getDimensionPixelSize(R.dimen.net_traffic_multi_text_size);
+        mTextImgPadding = resources.getDimensionPixelSize(R.dimen.net_traffic_text_img_padding);
 
         mNetworkTrafficIsVisible = false;
 
@@ -386,6 +388,7 @@ public class NetworkTraffic extends TextView {
             drawableResId = 0;
         }
         mDrawable = drawableResId != 0 ? getResources().getDrawable(drawableResId) : null;
+        setCompoundDrawablePadding(mTextImgPadding);
         setCompoundDrawablesWithIntrinsicBounds(null, null, mDrawable, null);
         updateTrafficDrawableColor();
     }
