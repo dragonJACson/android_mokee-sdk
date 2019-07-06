@@ -35,6 +35,7 @@
          * 0: Display the battery as icon in portrait mode
          * 1: Display the battery as a circle
          * 2: Display the battery as plain text
+         * 3: Display the battery as Q style
     -->
     <integer name="def_battery_style">1</integer>
 
