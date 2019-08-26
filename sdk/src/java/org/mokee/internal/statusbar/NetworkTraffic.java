@@ -1,6 +1,6 @@
 /**
  * Copyright (C) 2014-2019 The MoKee Open Source project
- * Copyright (C) 2017-2018 The LineageOS project
+ * Copyright (C) 2017-2019 The LineageOS project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,26 +31,30 @@ import android.graphics.Rect;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
-import android.net.NetworkInfo;
+import android.net.NetworkCapabilities;
+import android.net.NetworkRequest;
 import android.net.TrafficStats;
 import android.os.Handler;
 import android.os.UserHandle;
 import android.os.Message;
 import android.os.SystemClock;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.TextView;
 
 import mokee.providers.MKSettings;
 
+import org.mokee.platform.internal.R;
+
 import java.text.DecimalFormat;
 import java.util.HashMap;
 
-import org.mokee.platform.internal.R;
-
 public class NetworkTraffic extends TextView {
     private static final String TAG = "NetworkTraffic";
+
+    private static final boolean DEBUG = false;
 
     private static final int MODE_DISABLED = 0;
     private static final int MODE_UPSTREAM_ONLY = 1;
@@ -80,6 +84,8 @@ public class NetworkTraffic extends TextView {
     private boolean mNetworkTrafficIsVisible;
     private long mTxBytes;
     private long mRxBytes;
+    private long mLastTxBytes;
+    private long mLastRxBytes;
     private long mLastUpdateTime;
     private int mTextSizeSingle;
     private int mTextSizeMulti;
@@ -91,8 +97,22 @@ public class NetworkTraffic extends TextView {
     private int mIconTint = Color.WHITE;
     private SettingsObserver mObserver;
     private Drawable mDrawable;
-    private HashMap<String, IfaceTrafficStats> mActiveIfaceStats;
-    private boolean mIsStatsDirty;
+
+    // Network tracking related variables
+    final private ConnectivityManager mConnectivityManager;
+    final private HashMap<Network, NetworkState> mNetworkMap = new HashMap<>();
+    private boolean mNetworksChanged = true;
+
+    public class NetworkState {
+        public NetworkCapabilities mNetworkCapabilities;
+        public LinkProperties mLinkProperties;
+
+        public NetworkState(NetworkCapabilities networkCapabilities,
+                LinkProperties linkProperties) {
+            mNetworkCapabilities = networkCapabilities;
+            mLinkProperties = linkProperties;
+        }
+    };
 
     public NetworkTraffic(Context context) {
         this(context, null);
@@ -114,8 +134,12 @@ public class NetworkTraffic extends TextView {
 
         mObserver = new SettingsObserver(mTrafficHandler);
 
-        /* Prepare for extreme case: WiFi + Mobile + Bluetooth + Ethernet */
-        mActiveIfaceStats = new HashMap<>(4);
+        mConnectivityManager = getContext().getSystemService(ConnectivityManager.class);
+        final NetworkRequest request = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                .build();
+        mConnectivityManager.registerNetworkCallback(request, mNetworkCallback);
     }
 
     private MKStatusBarItem.DarkReceiver mDarkReceiver =
@@ -153,7 +177,6 @@ public class NetworkTraffic extends TextView {
         mContext.registerReceiver(mIntentReceiver,
                 new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
         mObserver.observe();
-        mIsStatsDirty = true;
         updateSettings();
     }
 
@@ -167,28 +190,43 @@ public class NetworkTraffic extends TextView {
     private Handler mTrafficHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
-            long now = SystemClock.elapsedRealtime();
-            long timeDelta = now - mLastUpdateTime;
-
-            if (mIsStatsDirty) {
-                if (refreshActiveIfaces()) {
-                    mIsStatsDirty = false;
-                } else {
-                    return;
-                }
-            }
-
+            final long now = SystemClock.elapsedRealtime();
+            final long timeDelta = now - mLastUpdateTime; /* ms */
             if (msg.what == MESSAGE_TYPE_PERIODIC_REFRESH
                     && timeDelta >= REFRESH_INTERVAL * 0.95f) {
                 // Update counters
+                long txBytes = 0;
+                long rxBytes = 0;
+                // Sum stats from interfaces of interest
+                for (NetworkState state : mNetworkMap.values()) {
+                    final String iface = state.mLinkProperties.getInterfaceName();
+                    if (iface == null) {
+                        continue;
+                    }
+                    if (DEBUG) {
+                        Log.d(TAG, "adding stats from interface " + iface);
+                    }
+                    txBytes += TrafficStats.getTxBytes(iface);
+                    rxBytes += TrafficStats.getRxBytes(iface);
+                }
+
+                final long txBytesDelta = txBytes - mLastTxBytes;
+                final long rxBytesDelta = rxBytes - mLastRxBytes;
+
+                if (!mNetworksChanged && timeDelta > 0 && txBytesDelta >= 0 && rxBytesDelta >= 0) {
+                    mTxBytes = (long) (txBytesDelta / (timeDelta / 1000f));
+                    mRxBytes = (long) (rxBytesDelta / (timeDelta / 1000f));
+                } else if (mNetworksChanged) {
+                    mTxBytes = 0;
+                    mRxBytes = 0;
+                    mNetworksChanged = false;
+                }
+                mLastTxBytes = txBytes;
+                mLastRxBytes = rxBytes;
                 mLastUpdateTime = now;
-                long txBytes = diffAndUpdateTxBytes();
-                long rxBytes = diffAndUpdateRxBytes();
-                mTxBytes = (long) (txBytes / (timeDelta / 1000f));
-                mRxBytes = (long) (rxBytes / (timeDelta / 1000f));
             }
 
-            final boolean enabled = mMode != MODE_DISABLED && mActiveIfaceStats.size() != 0;
+            final boolean enabled = mMode != MODE_DISABLED && isConnectionAvailable();
             final boolean showUpstream =
                     mMode == MODE_UPSTREAM_ONLY || mMode == MODE_UPSTREAM_AND_DOWNSTREAM;
             final boolean showDownstream =
@@ -263,7 +301,6 @@ public class NetworkTraffic extends TextView {
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
             if (ConnectivityManager.CONNECTIVITY_ACTION.equals(action)) {
-                mIsStatsDirty = true;
                 updateViewState();
             }
         }
@@ -294,62 +331,10 @@ public class NetworkTraffic extends TextView {
         }
     }
 
-    private long diffAndUpdateTxBytes() {
-        long txBytesDelta = 0;
-        for (String iface : mActiveIfaceStats.keySet()) {
-            IfaceTrafficStats stats = mActiveIfaceStats.get(iface);
-            long txBytes = TrafficStats.getTxBytes(iface);
-
-            txBytesDelta += txBytes - stats.mTxBytes;
-            stats.mTxBytes = txBytes;
-        }
-        return txBytesDelta;
-    }
-
-    private long diffAndUpdateRxBytes() {
-        long rxBytesDelta = 0;
-        for (String iface : mActiveIfaceStats.keySet()) {
-            IfaceTrafficStats stats = mActiveIfaceStats.get(iface);
-            long rxBytes = TrafficStats.getRxBytes(iface);
-
-            rxBytesDelta += rxBytes - stats.mRxBytes;
-            stats.mRxBytes = rxBytes;
-        }
-        return rxBytesDelta;
-    }
-
-    private boolean refreshActiveIfaces() {
+    private boolean isConnectionAvailable() {
         ConnectivityManager cm =
                 (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-
-        mActiveIfaceStats.clear();
-
-        Network[] networks = cm.getAllNetworks();
-        for (Network network : networks) {
-            NetworkInfo networkInfo = cm.getNetworkInfo(network);
-            if (networkInfo == null) {
-                return false;
-            }
-
-            if (networkInfo.getType() != ConnectivityManager.TYPE_VPN) {
-                LinkProperties properties = cm.getLinkProperties(network);
-                IfaceTrafficStats stats;
-                String iface;
-
-                /* This is likely to be null when switching data SIM */
-                if (properties == null) {
-                    return false;
-                }
-
-                iface = properties.getInterfaceName();
-                if (iface == null) return false;
-                stats = new IfaceTrafficStats();
-                stats.mRxBytes = TrafficStats.getRxBytes(iface);
-                stats.mTxBytes = TrafficStats.getTxBytes(iface);
-                mActiveIfaceStats.put(iface, stats);
-            }
-        }
-        return true;
+        return cm.getActiveNetworkInfo() != null;
     }
 
     private void updateSettings() {
@@ -399,8 +384,40 @@ public class NetworkTraffic extends TextView {
         }
     }
 
-    private static class IfaceTrafficStats {
-        public long mTxBytes;
-        public long mRxBytes;
-    }
+    private ConnectivityManager.NetworkCallback mNetworkCallback =
+            new ConnectivityManager.NetworkCallback() {
+        @Override
+        public void onAvailable(Network network) {
+            mNetworkMap.put(network,
+                    new NetworkState(mConnectivityManager.getNetworkCapabilities(network),
+                    mConnectivityManager.getLinkProperties(network)));
+            mNetworksChanged = true;
+        }
+
+        @Override
+        public void onCapabilitiesChanged(Network network,
+                NetworkCapabilities networkCapabilities) {
+            if (mNetworkMap.containsKey(network)) {
+                mNetworkMap.put(network, new NetworkState(networkCapabilities,
+                        mConnectivityManager.getLinkProperties(network)));
+                mNetworksChanged = true;
+            }
+        }
+
+        @Override
+        public void onLinkPropertiesChanged(Network network, LinkProperties linkProperties) {
+            if (mNetworkMap.containsKey(network)) {
+                mNetworkMap.put(network,
+                        new NetworkState(mConnectivityManager.getNetworkCapabilities(network),
+                        linkProperties));
+                mNetworksChanged = true;
+            }
+        }
+
+        @Override
+        public void onLost(Network network) {
+            mNetworkMap.remove(network);
+            mNetworksChanged = true;
+        }
+    };
 }
